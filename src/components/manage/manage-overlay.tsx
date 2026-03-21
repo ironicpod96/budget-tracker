@@ -22,7 +22,55 @@ import {
   FIXED_EXPENSE_SUGGESTIONS,
   getSuggestedPercentages,
 } from "@/lib/constants/categories";
-import { X, RotateCcw, LogOut, Plus, Minus, TriangleAlert } from "lucide-react";
+import { X, RotateCcw, LogOut, Plus, Minus } from "lucide-react";
+
+function EyeOpen({ size = 20 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M10.5 8a2.5 2.5 0 1 1-5 0a2.5 2.5 0 0 1 5 0" />
+      <path d="M0 8s3-5.5 8-5.5S16 8 16 8s-3 5.5-8 5.5S0 8 0 8m8 3.5a3.5 3.5 0 1 0 0-7a3.5 3.5 0 0 0 0 7" />
+    </svg>
+  );
+}
+
+function EyeClosed({ size = 20 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+      <path d="m10.79 12.912l-1.614-1.615a3.5 3.5 0 0 1-4.474-4.474l-2.06-2.06C.938 6.278 0 8 0 8s3 5.5 8 5.5a7 7 0 0 0 2.79-.588M5.21 3.088A7 7 0 0 1 8 2.5c5 0 8 5.5 8 5.5s-.939 1.721-2.641 3.238l-2.062-2.062a3.5 3.5 0 0 0-4.474-4.474z" />
+      <path d="M5.525 7.646a2.5 2.5 0 0 0 2.829 2.829zm4.95.708l-2.829-2.83a2.5 2.5 0 0 1 2.829 2.829zm3.171 6l-12-12l.708-.708l12 12z" />
+    </svg>
+  );
+}
+
+function PixelateFilter() {
+  return (
+    <svg width="0" height="0" className="absolute" aria-hidden="true">
+      <filter id="pixelate" primitiveUnits="userSpaceOnUse">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blurred" />
+        <feFlood x="0" y="0" height="1" width="1" />
+        <feComposite width="10" height="10" />
+        <feTile result="a" />
+        <feComposite in="blurred" in2="a" operator="in" />
+        <feMorphology operator="dilate" radius="5" />
+      </filter>
+    </svg>
+  );
+}
+
+function PixelCensor({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  return (
+    <span
+      className="inline-block transition-[filter,opacity] duration-300 ease-in-out"
+      style={
+        enabled
+          ? { filter: "url(#pixelate)", userSelect: "none" as const }
+          : {}
+      }
+    >
+      {children}
+    </span>
+  );
+}
 
 interface ManageOverlayProps {
   open: boolean;
@@ -69,14 +117,14 @@ function ExpandableRow({
         )}
       >
         <span
-          className={`flex items-center gap-0.5 text-base ${FONT_STYLES.bodyStrong}`}
+          className={`flex items-center gap-0.5 text-lg ${FONT_STYLES.bodyStrong}`}
         >
           <ExpandToggleIcon open={open} size={32} className="-ml-2" />
           <span>{label}</span>
         </span>
         <span
           className={cn(
-            "text-base font-medium",
+            "text-lg font-medium",
             open ? "text-white" : "text-muted-foreground group-hover:text-white"
           )}
         >
@@ -107,6 +155,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
   const router = useRouter();
   const supabase = createClient();
 
+  const [privacyMode, setPrivacyMode] = useState(false);
   const [manageTab, setManageTab] = useState<"manage" | "more">("manage");
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState(() => profile?.name || "");
@@ -171,8 +220,6 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
     Math.abs(draftVariablePool) * (differencePct / 100)
   );
   const needsRemainderChoice = totalVariablePct !== 100;
-  const variablePoolDelta = Math.round((draftVariablePool - variablePool) * 100) / 100;
-  const variablePoolWarning = variablePoolDelta < 0;
   const protectedIndexes = new Set(
     variableDrafts
       .map((envelope, index) =>
@@ -611,6 +658,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-surface-bg">
+      <PixelateFilter />
       <div className="absolute inset-y-0 left-1/2 w-full -translate-x-1/2 overflow-y-auto">
         <div className="mx-auto w-full max-w-[430px] px-4 pb-8 pt-6">
           <TopBar
@@ -660,18 +708,42 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                     <Input
                       value={nameDraft}
                       onChange={(e) => setNameDraft(e.target.value)}
-                      className="h-10 flex-1 bg-background text-xl"
+                      className="h-10 flex-1 bg-background text-2xl"
                       placeholder="Name"
                     />
                   ) : (
-                    <h2 className={`text-xl ${FONT_STYLES.bodyStrong}`}>
-                      {currentProfile.name}
-                    </h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className={`text-2xl ${FONT_STYLES.bodyStrong}`}>
+                        {currentProfile.name}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => setPrivacyMode((p) => !p)}
+                        className="relative h-5 w-5 text-muted-foreground transition-colors hover:text-white"
+                      >
+                        <span
+                          className={cn(
+                            "absolute inset-0 transition-opacity duration-200",
+                            privacyMode ? "opacity-0" : "opacity-100"
+                          )}
+                        >
+                          <EyeOpen size={20} />
+                        </span>
+                        <span
+                          className={cn(
+                            "absolute inset-0 transition-opacity duration-200",
+                            privacyMode ? "opacity-100" : "opacity-0"
+                          )}
+                        >
+                          <EyeClosed size={20} />
+                        </span>
+                      </button>
+                    </div>
                   )}
                   <button
                     type="button"
                     onClick={() => toggleEditing("profile")}
-                    className="text-sm text-muted-foreground hover:text-white"
+                    className="text-base text-muted-foreground hover:text-white"
                   >
                     {editingSection === "profile" ? "Cancel" : "Edit"}
                   </button>
@@ -681,7 +753,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                   {editingSection === "profile" ? (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="mb-2 text-xs text-muted-foreground">
+                        <p className="mb-2 text-sm text-muted-foreground">
                           Monthly Income
                         </p>
                         <CurrencyInput
@@ -690,7 +762,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                         />
                       </div>
                       <div>
-                        <p className="mb-2 text-xs text-muted-foreground">
+                        <p className="mb-2 text-sm text-muted-foreground">
                           EPF Contribution
                         </p>
                         <div className="relative">
@@ -702,7 +774,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                             }
                             className="h-11 bg-background pr-8"
                           />
-                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground">
                             %
                           </span>
                         </div>
@@ -711,15 +783,19 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                   ) : (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-xs text-muted-foreground">Monthly Income</p>
-                        <p className={`text-xl ${FONT_STYLES.displayValue}`}>
-                          {formatManageRM(currentProfile.grossIncome)}
+                        <p className="text-sm text-muted-foreground">Monthly Income</p>
+                        <p className={`text-2xl ${FONT_STYLES.displayValue}`}>
+                          <PixelCensor enabled={privacyMode}>
+                            {formatManageRM(currentProfile.grossIncome)}
+                          </PixelCensor>
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground">EPF Contribution</p>
-                        <p className={`text-xl ${FONT_STYLES.displayValue}`}>
-                          {currentProfile.epfRate}%
+                        <p className="text-sm text-muted-foreground">EPF Contribution</p>
+                        <p className={`text-2xl ${FONT_STYLES.displayValue}`}>
+                          <PixelCensor enabled={privacyMode}>
+                            {currentProfile.epfRate}%
+                          </PixelCensor>
                         </p>
                       </div>
                     </div>
@@ -738,30 +814,30 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
 
                 <ExpandableRow
                   label="Monthly Deductions"
-                  value={formatManageRM(deductions?.total ?? draftDeductions.total)}
+                  value={<PixelCensor enabled={privacyMode}>{formatManageRM(deductions?.total ?? draftDeductions.total)}</PixelCensor>}
                   open={expandedSection === "deductions"}
                   onToggle={() => toggleSection("deductions")}
                 >
-                  <div className="space-y-2 rounded-xl bg-background p-4 text-sm">
+                  <div className="space-y-2 rounded-xl bg-background p-4 text-base">
                     <div className="flex justify-between">
                       <span>EPF</span>
-                      <span>{formatManageRM(draftDeductions.epf)}</span>
+                      <span><PixelCensor enabled={privacyMode}>{formatManageRM(draftDeductions.epf)}</PixelCensor></span>
                     </div>
                     <div className="flex justify-between">
                       <span>SOCSO</span>
-                      <span>{formatManageRM(draftDeductions.socso)}</span>
+                      <span><PixelCensor enabled={privacyMode}>{formatManageRM(draftDeductions.socso)}</PixelCensor></span>
                     </div>
                     <div className="flex justify-between">
                       <span>EIS</span>
-                      <span>{formatManageRM(draftDeductions.eis)}</span>
+                      <span><PixelCensor enabled={privacyMode}>{formatManageRM(draftDeductions.eis)}</PixelCensor></span>
                     </div>
                     <div className="flex justify-between">
                       <span>PCB</span>
-                      <span>{formatManageRM(draftDeductions.pcb)}</span>
+                      <span><PixelCensor enabled={privacyMode}>{formatManageRM(draftDeductions.pcb)}</PixelCensor></span>
                     </div>
                     <div className="flex justify-between border-t border-border pt-2 font-medium">
                       <span>Total</span>
-                      <span>{formatManageRM(draftDeductions.total)}</span>
+                      <span><PixelCensor enabled={privacyMode}>{formatManageRM(draftDeductions.total)}</PixelCensor></span>
                     </div>
                   </div>
                 </ExpandableRow>
@@ -769,9 +845,9 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
 
               <div className="mb-4 rounded-2xl bg-surface-card p-5">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className={`text-xl ${FONT_STYLES.bodyStrong}`}>Take-Home</h2>
-                  <span className={`text-xl ${FONT_STYLES.displayValue}`}>
-                    {formatManageRM(takeHome)}
+                  <h2 className={`text-2xl ${FONT_STYLES.bodyStrong}`}>Take-Home</h2>
+                  <span className={`text-2xl ${FONT_STYLES.displayValue}`}>
+                    <PixelCensor enabled={privacyMode}>{formatManageRM(takeHome)}</PixelCensor>
                   </span>
                 </div>
 
@@ -787,7 +863,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                         <div className="space-y-3">
                           {fixedExpenseDrafts.map((expense, index) => (
                             <div
-                              key={`${expense.name}-${index}`}
+                              key={expense.id || index}
                               className="flex items-center gap-2"
                             >
                               <Input
@@ -796,7 +872,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                   updateFixedExpense(index, "icon", e.target.value)
                                 }
                                 maxLength={2}
-                                className="h-10 w-12 bg-background px-0 text-center text-xl"
+                                className="h-10 w-12 bg-background px-0 text-center text-2xl"
                                 aria-label="Expense emoji"
                               />
                               <Input
@@ -812,14 +888,14 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                 onChange={(value) =>
                                   updateFixedExpense(index, "amount", value)
                                 }
-                                className="w-32"
+                                className="w-28"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeFixedExpense(index)}
-                                className="text-sm text-muted-foreground hover:text-white"
+                                className="rounded-full p-1 text-muted-foreground hover:text-white"
                               >
-                                Remove
+                                <X size={16} />
                               </button>
                             </div>
                           ))}
@@ -833,7 +909,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                               onClick={() =>
                                 addFixedExpense(suggestion.name, suggestion.icon)
                               }
-                              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm hover:bg-muted"
+                              className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-base hover:bg-muted"
                             >
                               <span>{suggestion.icon}</span> {suggestion.name}
                             </button>
@@ -841,7 +917,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           <button
                             type="button"
                             onClick={() => addFixedExpense()}
-                            className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm hover:bg-muted"
+                            className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-base hover:bg-muted"
                           >
                             <Plus size={14} /> Add
                           </button>
@@ -851,7 +927,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           <button
                             type="button"
                             onClick={() => toggleEditing("fixed")}
-                            className="text-sm text-muted-foreground hover:text-white"
+                            className="text-base text-muted-foreground hover:text-white"
                           >
                             Cancel
                           </button>
@@ -866,7 +942,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                       </>
                     ) : (
                       <>
-                        <div className="space-y-2 rounded-xl bg-background p-4 text-sm">
+                        <div className="space-y-2 rounded-xl bg-background p-4 text-base">
                           {fixedExpenses.length > 0 ? (
                             fixedExpenses.map((expense) => (
                               <div
@@ -887,7 +963,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                         <button
                           type="button"
                           onClick={() => toggleEditing("fixed")}
-                          className="text-sm text-muted-foreground hover:text-white"
+                          className="text-base text-muted-foreground hover:text-white"
                         >
                           Edit
                         </button>
@@ -903,7 +979,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                   onToggle={() => toggleSection("savings")}
                 >
                   <div className="space-y-4">
-                    <div className="text-center">
+                    <div className="mt-4 text-center">
                       <div className="flex items-center justify-center gap-4">
                         <button
                           type="button"
@@ -937,7 +1013,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           <Plus size={28} strokeWidth={2.5} />
                         </button>
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">
+                      <p className="mt-3 text-base text-muted-foreground">
                         {savingsMode === "percentage"
                           ? `${formatManageRM(draftSavingsAmount)} / month`
                           : `${Math.round((draftSavingsAmount / Math.max(draftTakeHome, 1)) * 100)}%`}
@@ -953,7 +1029,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                 : 0
                             )
                           }
-                          className={`rounded-md py-2 text-sm font-medium shadow-sm ${
+                          className={`rounded-md py-2 text-base font-medium shadow-sm ${
                             savingsMode === "percentage"
                               ? "bg-foreground text-background"
                               : "text-muted-foreground hover:text-white"
@@ -966,7 +1042,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           onClick={() =>
                             applySavingsDraft("amount", Math.round(draftSavingsAmount))
                           }
-                          className={`rounded-md py-2 text-sm font-medium shadow-sm ${
+                          className={`rounded-md py-2 text-base font-medium shadow-sm ${
                             savingsMode === "amount"
                               ? "bg-foreground text-background"
                               : "text-muted-foreground hover:text-white"
@@ -981,46 +1057,46 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
 
                 <ExpandableRow
                   label="Variable Expenses"
-                  value={
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-2",
-                        variablePoolWarning &&
-                          expandedSection !== "variable" &&
-                          "text-accent-yellow"
-                      )}
-                    >
-                      {variablePoolWarning && expandedSection !== "variable" && (
-                        <TriangleAlert size={16} className="shrink-0" />
-                      )}
-                      <span>{formatManageRM(draftVariablePool)}</span>
-                    </span>
-                  }
+                  value={formatManageRM(draftVariablePool)}
                   open={expandedSection === "variable"}
                   onToggle={() => toggleSection("variable")}
                 >
                   <div className="space-y-4">
                     {editingSection === "variable" ? (
                       <>
-                        <div className="overflow-hidden rounded-xl bg-background">
-                          <div className="grid grid-cols-[1.3fr_1fr_80px] gap-3 border-b border-border px-4 py-3 text-xs uppercase tracking-wide text-muted-foreground">
-                            <span>Category</span>
-                            <span>RM</span>
-                            <span>%</span>
+                        <div className="flex items-center justify-between">
+                          <Button
+                            variant="ghost"
+                            onClick={autofillVariableCategories}
+                            className="h-10 px-0 text-base font-medium text-muted-foreground"
+                          >
+                            Autofill
+                          </Button>
+
+                          <div
+                            className={`text-base font-medium ${
+                              totalVariablePct === 100
+                                ? "text-muted-foreground"
+                                : "text-accent-red"
+                            }`}
+                          >
+                            Total: {totalVariablePct}%
                           </div>
+                        </div>
+
+                        <div className="overflow-hidden rounded-xl bg-background">
                           {variableDrafts.map((envelope, index) => (
                             <div
                               key={`${envelope.name}-${index}`}
-                              className="border-b border-border last:border-b-0"
                             >
                               <div className="grid grid-cols-[1.3fr_1fr_80px] items-center gap-3 px-4 py-3">
                                 <div className="flex items-center gap-2">
                                   <span>{CATEGORY_ICONS[envelope.icon] || "📦"}</span>
-                                  <span className="text-sm font-medium">
+                                  <span className="text-base font-medium">
                                     {envelope.name}
                                   </span>
                                 </div>
-                                <span className="text-sm">
+                                <span className="text-base">
                                   {formatManageRM(
                                     getMonthlyAllocation(
                                       envelope.percentage,
@@ -1041,7 +1117,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                     }
                                     className="h-10 bg-surface-card pr-8 text-right"
                                   />
-                                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground">
                                     %
                                   </span>
                                 </div>
@@ -1058,7 +1134,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                       parseInt(e.target.value, 10)
                                     )
                                   }
-                                  className="budget-slider w-full"
+                                  className="budget-slider slider-on-card w-full"
                                   style={{
                                     ["--slider-progress" as string]: `${envelope.percentage}%`,
                                   }}
@@ -1068,29 +1144,9 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           ))}
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <Button
-                            variant="ghost"
-                            onClick={autofillVariableCategories}
-                            className="h-10 px-0 text-sm font-medium text-muted-foreground"
-                          >
-                            Autofill
-                          </Button>
-
-                          <div
-                            className={`text-sm font-medium ${
-                              totalVariablePct === 100
-                                ? "text-muted-foreground"
-                                : "text-accent-red"
-                            }`}
-                          >
-                            Total: {totalVariablePct}%
-                          </div>
-                        </div>
-
                         {needsRemainderChoice && (
                           <div className="rounded-2xl bg-background p-4">
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-base text-muted-foreground">
                               {isUnderAllocated
                                 ? `You have ${formatManageRM(differenceAmount)} extra.`
                                 : `You need ${formatManageRM(differenceAmount)} more.`}
@@ -1149,7 +1205,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                           <button
                             type="button"
                             onClick={() => toggleEditing("variable")}
-                            className="text-sm text-muted-foreground hover:text-white"
+                            className="text-base text-muted-foreground hover:text-white"
                           >
                             Cancel
                           </button>
@@ -1170,8 +1226,8 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                       </>
                     ) : (
                       <>
-                        <div className="space-y-2 rounded-xl bg-background p-4 text-sm">
-                          <p className="text-sm text-muted-foreground">Monthly Allocations</p>
+                        <div className="space-y-2 rounded-xl bg-background p-4 text-base">
+                          <p className="text-base text-muted-foreground">Monthly Allocations</p>
                           {envelopes.map((envelope) => (
                             <div
                               key={envelope.id}
@@ -1188,7 +1244,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                                     envelope.monthlyBudget
                                   )
                                 )}{" "}
-                                budgeted · {Math.round(envelope.percentage)}%
+                                · {Math.round(envelope.percentage)}%
                               </span>
                             </div>
                           ))}
@@ -1197,7 +1253,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                         <button
                           type="button"
                           onClick={() => toggleEditing("variable")}
-                          className="text-sm text-muted-foreground hover:text-white"
+                          className="text-base text-muted-foreground hover:text-white"
                         >
                           Edit
                         </button>
@@ -1214,7 +1270,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                 className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4"
               >
                 <RotateCcw size={18} />
-                <span className="text-sm font-medium">Reset Budget Setup</span>
+                <span className="text-base font-medium">Reset Budget Setup</span>
               </button>
 
               <button
@@ -1222,7 +1278,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                 className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4 text-accent-red"
               >
                 <LogOut size={18} />
-                <span className="text-sm font-medium">Log Out</span>
+                <span className="text-base font-medium">Log Out</span>
               </button>
             </div>
           )}

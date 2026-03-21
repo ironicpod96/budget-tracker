@@ -422,17 +422,28 @@ export default function VariablePage() {
         </p>
       </div>
 
-      <div className="my-4 overflow-hidden rounded-2xl bg-surface-card">
-        <div className="grid grid-cols-[1.4fr_1fr_92px] gap-3 border-b border-border px-4 py-3 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <span>Category</span>
-          <span>Monthly</span>
-          <span>%</span>
-        </div>
+      <div className="mt-4 flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={suggestDistribution}
+          className="h-10 px-0 text-sm font-medium text-muted-foreground"
+        >
+          Auto Fill
+        </Button>
 
+        <div
+          className={`text-sm font-medium ${
+            totalPct === 100 ? "text-muted-foreground" : "text-accent-red"
+          }`}
+        >
+          Total: {totalPct}%
+        </div>
+      </div>
+
+      <div className="mb-4 mt-2 overflow-hidden rounded-2xl bg-surface-card">
         {variableCategories.map((category, index) => (
           <div
             key={category.name}
-            className="border-b border-border last:border-b-0"
           >
             <div className="grid grid-cols-[1.4fr_1fr_92px] items-center gap-3 px-4 py-3">
               <div className="flex items-center gap-2">
@@ -478,24 +489,6 @@ export default function VariablePage() {
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          onClick={suggestDistribution}
-          className="h-10 px-0 text-sm font-medium text-muted-foreground"
-        >
-          Auto Fill
-        </Button>
-
-        <div
-          className={`text-sm font-medium ${
-            totalPct === 100 ? "text-muted-foreground" : "text-accent-red"
-          }`}
-        >
-          Total: {totalPct}%
-        </div>
       </div>
 
       {needsRemainderChoice && (

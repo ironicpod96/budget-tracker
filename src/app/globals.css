@@ -193,6 +193,16 @@
     );
   }
 
+  .budget-slider.slider-on-card {
+    background: linear-gradient(
+      to right,
+      color-mix(in oklab, var(--color-secondary) 88%, white 12%) 0%,
+      color-mix(in oklab, var(--color-secondary) 88%, white 12%) var(--slider-progress, 0%),
+      var(--color-surface-card) var(--slider-progress, 0%),
+      var(--color-surface-card) 100%
+    );
+  }
+
   .budget-slider::-webkit-slider-runnable-track {
     height: 6px;
     border-radius: 999px;
