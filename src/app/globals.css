@@ -69,14 +69,14 @@
   --muted-foreground: oklch(0.5 0 0);
   --accent: oklch(0.92 0.005 260);
   --accent-foreground: oklch(0.15 0 0);
-  --destructive: oklch(0.5 0.2 25);
+  --destructive: oklch(0.42 0.2 25);
   --border: oklch(0.88 0.005 260);
   --input: oklch(0.88 0.005 260);
   --ring: oklch(0.5 0 0);
   --radius: 0.75rem;
 
   /* Bajet accent tokens — light mode (rich, saturated) */
-  --accent-red: oklch(0.5 0.2 25);
+  --accent-red: oklch(0.42 0.2 25);
   --accent-green: oklch(0.5 0.18 145);
   --accent-blue: oklch(0.5 0.13 250);
   --accent-yellow: oklch(0.55 0.15 85);
@@ -105,16 +105,16 @@
   --muted-foreground: oklch(0.6 0 0);
   --accent: oklch(0.25 0.005 260);
   --accent-foreground: oklch(0.95 0 0);
-  --destructive: oklch(0.65 0.25 25);
+  --destructive: oklch(0.55 0.25 25);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.5 0 0);
 
   /* Bajet accent tokens — dark mode (neon) */
-  --accent-red: oklch(0.65 0.25 25);
+  --accent-red: oklch(0.55 0.25 25);
   --accent-green: oklch(0.75 0.2 145);
   --accent-blue: oklch(0.7 0.15 250);
-  --accent-yellow: oklch(0.8 0.18 85);
+  --accent-yellow: oklch(0.7 0.18 85);
   --surface-card: oklch(0.2 0.005 260);
   --surface-bg: oklch(0.12 0.005 260);
 
@@ -243,4 +243,5 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
 }

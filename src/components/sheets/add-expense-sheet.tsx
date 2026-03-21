@@ -73,6 +73,30 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
           transactionTime,
         });
 
+        // Check if any envelope is now overspent after this transaction
+        const state = useBudgetStore.getState();
+        const todayTxns = state.transactions.filter(
+          (t) => t.transactionDate === transactionDate
+        );
+        const byEnv: Record<string, number> = {};
+        todayTxns.forEach((t) => {
+          byEnv[t.envelopeId] = (byEnv[t.envelopeId] || 0) + t.amount;
+        });
+        const hasOverspend = state.envelopes.some((env) => {
+          const envBudget =
+            Math.round(state.dailyBudget * (env.percentage / 100) * 100) / 100;
+          const adjusted = Math.max(
+            0,
+            Math.round(
+              (envBudget + (state.dailyAdjustments[env.id] || 0)) * 100
+            ) / 100
+          );
+          return (byEnv[env.id] || 0) > adjusted;
+        });
+        if (hasOverspend) {
+          state.setSosPending(true);
+        }
+
         reset();
         onClose();
       }
@@ -92,22 +116,26 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
           </div>
         </div>
 
-        {/* Category picker */}
-        <div className="mb-2 mt-3 grid grid-cols-5 gap-2">
-          {envelopes.map((env) => (
-            <button
-              key={env.id}
-              onClick={() => setSelectedEnvelope(env.id)}
-              className={`flex min-w-0 flex-col items-center gap-1 rounded-xl px-2 py-2 text-xs transition-colors ${
-                (selectedEnvelope || envelopes[0]?.id) === env.id
-                  ? "bg-foreground text-background"
-                  : "bg-surface-card"
-              }`}
-            >
-              <span className="text-lg">{CATEGORY_ICONS[env.icon] || "📦"}</span>
-              <span className="truncate">{env.name}</span>
-            </button>
-          ))}
+        {/* Category picker — horizontal scroll with edge fade */}
+        <div className="relative mb-2 mt-3 -mx-6">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-surface-bg to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-surface-bg to-transparent" />
+          <div className="no-scrollbar flex gap-2 overflow-x-auto px-6">
+            {envelopes.map((env) => (
+              <button
+                key={env.id}
+                onClick={() => setSelectedEnvelope(env.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                  (selectedEnvelope || envelopes[0]?.id) === env.id
+                    ? "bg-foreground text-background"
+                    : "bg-surface-card"
+                }`}
+              >
+                <span className="text-xl">{CATEGORY_ICONS[env.icon] || "📦"}</span>
+                <span>{env.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Description */}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBudgetStore } from "@/stores/budget-store";
@@ -192,6 +192,41 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
   const [resolution, setResolution] = useState<null | "put_back" | "use_savings">(
     null
   );
+
+  // Fetch transferred savings for this week and this month
+  const [savingsThisWeek, setSavingsThisWeek] = useState(0);
+  const [savingsThisMonth, setSavingsThisMonth] = useState(0);
+  const [savingsLoaded, setSavingsLoaded] = useState(false);
+  const profileId = profile?.id;
+
+  useEffect(() => {
+    if (!profileId || savingsLoaded) return;
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+    const weekStartStr = monday.toISOString().split("T")[0];
+    const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+
+    (async () => {
+      const { data: rows } = await supabase
+        .from("weekly_savings")
+        .select("week_start, remainder")
+        .eq("profile_id", profileId)
+        .eq("transferred_to_savings", true)
+        .gte("week_start", monthStartStr)
+        .order("week_start");
+
+      if (!rows) return;
+
+      const weekRow = rows.find((r) => r.week_start === weekStartStr);
+      setSavingsThisWeek(weekRow?.remainder ?? 0);
+      setSavingsThisMonth(rows.reduce((sum, r) => sum + Number(r.remainder), 0));
+      setSavingsLoaded(true);
+    })();
+  }, [profileId, savingsLoaded]);
 
   const grossIncome = parseFloat(incomeDraft) || 0;
   const epfRate = parseFloat(epfDraft) || 0;
@@ -1261,6 +1296,44 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                     )}
                   </div>
                 </ExpandableRow>
+              </div>
+
+              <div className="mb-4 rounded-2xl bg-surface-card p-5">
+                <h2 className={`mb-4 text-2xl ${FONT_STYLES.bodyStrong}`}>Savings</h2>
+
+                <div className="border-t border-border py-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-lg ${FONT_STYLES.bodyStrong} text-muted-foreground`}>
+                      This week
+                    </span>
+                    <span className={`text-lg ${FONT_STYLES.displayValue}`}>
+                      {savingsLoaded ? (
+                        <PixelCensor enabled={privacyMode}>
+                          {formatManageRM(savingsThisWeek)}
+                        </PixelCensor>
+                      ) : (
+                        <span className="inline-block h-[18px] w-16 animate-pulse rounded bg-muted" />
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-border py-3">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-lg ${FONT_STYLES.bodyStrong} text-muted-foreground`}>
+                      This month
+                    </span>
+                    <span className={`text-lg ${FONT_STYLES.displayValue}`}>
+                      {savingsLoaded ? (
+                        <PixelCensor enabled={privacyMode}>
+                          {formatManageRM(savingsThisMonth)}
+                        </PixelCensor>
+                      ) : (
+                        <span className="inline-block h-[18px] w-16 animate-pulse rounded bg-muted" />
+                      )}
+                    </span>
+                  </div>
+                </div>
               </div>
             </>
           ) : (

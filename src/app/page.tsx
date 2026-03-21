@@ -18,6 +18,7 @@ export default async function HomePage() {
     { data: savingsTarget },
     { data: envelopes },
     { data: transactions },
+    { data: weeklySavingsRow },
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
@@ -47,6 +48,14 @@ export default async function HomePage() {
       .order("transaction_date", { ascending: false })
       .order("transaction_time", { ascending: false })
       .limit(100),
+    supabase
+      .from("weekly_savings")
+      .select("transferred_at")
+      .eq("profile_id", user.id)
+      .eq("transferred_to_savings", true)
+      .order("transferred_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (!profile?.onboarding_complete) redirect("/onboarding/income");
@@ -101,5 +110,10 @@ export default async function HomePage() {
     })),
   };
 
-  return <HomeClient initialData={initialData} />;
+  return (
+    <HomeClient
+      initialData={initialData}
+      lastSavingsTransferDate={weeklySavingsRow?.transferred_at ?? null}
+    />
+  );
 }

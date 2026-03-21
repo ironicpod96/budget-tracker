@@ -99,7 +99,11 @@ export function ProgressRing({
             width: `${textBoxWidth}px`,
             fontSize: `${displayFontSize}px`,
             lineHeight: 1,
-            color: isNegative ? "var(--accent-red)" : undefined,
+            color: isNegative
+              ? "var(--accent-red)"
+              : remaining === 0
+                ? "var(--accent-yellow)"
+                : undefined,
           }}
         >
           {displayText}

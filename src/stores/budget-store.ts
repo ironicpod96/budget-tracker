@@ -74,6 +74,10 @@ interface BudgetState {
   weeklyBudget: number;
   remainingThisWeek: number;
 
+  // SOS state
+  dailyAdjustments: Record<string, number>;
+  sosPending: boolean;
+
   // Actions
   setProfile: (profile: Profile) => void;
   setFixedExpenses: (expenses: FixedExpense[]) => void;
@@ -83,6 +87,11 @@ interface BudgetState {
   addTransaction: (transaction: Transaction) => void;
   removeTransaction: (transactionId: string) => void;
   recalculate: () => void;
+  setSosPending: (pending: boolean) => void;
+  applyTrim: (
+    donorTakes: Array<{ id: string; take: number }>,
+    overspent: Array<{ id: string; remainingAmount: number }>
+  ) => void;
 }
 
 function getToday(): string {
@@ -96,6 +105,15 @@ function getWeekStart(): string {
   const monday = new Date(now);
   monday.setDate(now.getDate() - diff);
   return monday.toISOString().split("T")[0];
+}
+
+function getWeekEnd(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const daysToSunday = day === 0 ? 0 : 7 - day;
+  const sunday = new Date(now);
+  sunday.setDate(now.getDate() + daysToSunday);
+  return sunday.toISOString().split("T")[0];
 }
 
 export const useBudgetStore = create<BudgetState>((set, get) => ({
@@ -116,6 +134,8 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   spentThisWeek: 0,
   weeklyBudget: 0,
   remainingThisWeek: 0,
+  dailyAdjustments: {},
+  sosPending: false,
 
   setProfile: (profile) => {
     const deductions = calcAllDeductions(
@@ -161,6 +181,26 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     get().recalculate();
   },
 
+  setSosPending: (pending) => {
+    set({ sosPending: pending });
+  },
+
+  applyTrim: (donorTakes, overspent) => {
+    set((state) => {
+      const next = { ...state.dailyAdjustments };
+      for (const dt of donorTakes) {
+        if (dt.take > 0) {
+          next[dt.id] = Math.round(((next[dt.id] || 0) - dt.take) * 100) / 100;
+        }
+      }
+      for (const item of overspent) {
+        const need = Math.abs(item.remainingAmount);
+        next[item.id] = Math.round(((next[item.id] || 0) + need) * 100) / 100;
+      }
+      return { dailyAdjustments: next };
+    });
+  },
+
   recalculate: () => {
     const { profile, deductions, fixedExpenses, savingsTarget, transactions } =
       get();
@@ -182,17 +222,22 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
     const now = new Date();
     const daysInMonth = getDaysInMonth(now.getFullYear(), now.getMonth());
     const dailyBudget = calcDailyBudget(variablePool, daysInMonth);
-    const weeklyBudget = Math.round(dailyBudget * 7 * 100) / 100;
 
     const today = getToday();
     const weekStart = getWeekStart();
+
+    // Days remaining in week (including today): Sun=1, Mon=7, Tue=6, ..., Sat=2
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const daysLeftInWeek = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+    const weeklyBudget = Math.round(dailyBudget * daysLeftInWeek * 100) / 100;
 
     const spentToday = transactions
       .filter((t) => t.transactionDate === today)
       .reduce((sum, t) => sum + t.amount, 0);
 
+    // Weekly spending: only from today onwards (past days are settled)
     const spentThisWeek = transactions
-      .filter((t) => t.transactionDate >= weekStart)
+      .filter((t) => t.transactionDate >= today && t.transactionDate <= getWeekEnd())
       .reduce((sum, t) => sum + t.amount, 0);
 
     const remainingToday = Math.round((dailyBudget - spentToday) * 100) / 100;

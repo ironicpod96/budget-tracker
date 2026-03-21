@@ -108,7 +108,8 @@ create table if not exists public.weekly_savings (
   remainder numeric(12,2) not null,
   transferred_to_savings boolean default false,
   transferred_at timestamptz,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  unique (profile_id, week_start)
 );
 
 -- Medals / achievements

@@ -6,7 +6,15 @@ export function getCategoryBarColor(remaining: number, budget: number) {
   const remainingRatio = budget > 0 ? Math.max(0, remaining / budget) : 0;
   const isOver = remaining < 0;
 
-  if (isOver || remainingRatio <= 0.15) {
+  if (isOver) {
+    return "var(--accent-red)";
+  }
+
+  if (remaining === 0) {
+    return "color-mix(in oklab, var(--accent-yellow) 62%, var(--accent-red) 38%)";
+  }
+
+  if (remainingRatio <= 0.15) {
     return "var(--accent-red)";
   }
 
@@ -58,7 +66,7 @@ function CategoryBar({
           }`}
           style={isWarning ? { backgroundColor: fillColor, paddingTop: "1px", paddingBottom: "1px" } : undefined}
         >
-          RM {Math.round(isOver ? Math.abs(remaining) : remaining)}
+          {isOver ? "-" : ""}RM {Math.round(isOver ? Math.abs(remaining) : remaining)}
         </span>
       </div>
     </div>
