@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatRM } from "@/components/shared/amount-display";
 import { useOnboardingStore } from "@/stores/onboarding-store";
+import { toLocalDateString } from "@/lib/utils";
 
 export default function VariablePage() {
   const [takeHomeAmount, setTakeHomeAmount] = useState(0);
@@ -400,8 +401,8 @@ export default function VariablePage() {
 
     await supabase.from("budget_periods").insert({
       profile_id: user.id,
-      start_date: startDate.toISOString().split("T")[0],
-      end_date: endDate.toISOString().split("T")[0],
+      start_date: toLocalDateString(startDate),
+      end_date: toLocalDateString(endDate),
       total_variable_budget: finalVariablePool,
       days_in_period: daysInMonth,
     });

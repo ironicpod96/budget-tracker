@@ -8,7 +8,7 @@ import { useBudgetStore } from "@/stores/budget-store";
 import { TopBar } from "@/components/shared/top-bar";
 import { ExpandToggleIcon } from "@/components/shared/expand-toggle-icon";
 import { CurrencyInput } from "@/components/shared/currency-input";
-import { cn } from "@/lib/utils";
+import { cn, toLocalDateString } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatRM } from "@/components/shared/amount-display";
@@ -207,7 +207,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
     const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(now);
     monday.setDate(now.getDate() - diffToMonday);
-    const weekStartStr = monday.toISOString().split("T")[0];
+    const weekStartStr = toLocalDateString(monday);
     const monthStartStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 
     (async () => {

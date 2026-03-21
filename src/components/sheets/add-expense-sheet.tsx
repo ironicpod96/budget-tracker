@@ -8,6 +8,7 @@ import { Numpad, useNumpadAmount } from "@/components/shared/numpad";
 import { useBudgetStore } from "@/stores/budget-store";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
+import { toLocalDateString } from "@/lib/utils";
 import { Check } from "lucide-react";
 
 interface AddExpenseSheetProps {
@@ -45,7 +46,7 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
       if (!user) return;
 
       const now = new Date();
-      const transactionDate = now.toISOString().split("T")[0];
+      const transactionDate = toLocalDateString(now);
       const transactionTime = now.toTimeString().split(" ")[0];
       const transactionId = crypto.randomUUID();
 

@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { DEFAULT_CATEGORIES, CATEGORY_ICONS } from "@/lib/constants/categories";
+import { toLocalDateString } from "@/lib/utils";
 
 export async function finishOnboarding(supabase: SupabaseClient, userId: string) {
   // Get current profile state
@@ -42,14 +43,14 @@ export async function finishOnboarding(supabase: SupabaseClient, userId: string)
     .from("budget_periods")
     .select("id")
     .eq("profile_id", userId)
-    .gte("start_date", startDate.toISOString().split("T")[0])
+    .gte("start_date", toLocalDateString(startDate))
     .limit(1);
 
   if (!existingPeriod || existingPeriod.length === 0) {
     await supabase.from("budget_periods").insert({
       profile_id: userId,
-      start_date: startDate.toISOString().split("T")[0],
-      end_date: endDate.toISOString().split("T")[0],
+      start_date: toLocalDateString(startDate),
+      end_date: toLocalDateString(endDate),
       total_variable_budget: 0,
       days_in_period: daysInMonth,
     });

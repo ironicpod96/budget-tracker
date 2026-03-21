@@ -7,6 +7,7 @@ import { TransactionList } from "@/components/home/transaction-list";
 import { AddExpenseSheet } from "@/components/sheets/add-expense-sheet";
 import { ManageOverlay } from "@/components/manage/manage-overlay";
 import { TopBar } from "@/components/shared/top-bar";
+import { useToday } from "@/lib/hooks/use-today";
 import { FONT_STYLES } from "@/lib/constants/typography";
 import type {
   Profile,
@@ -80,8 +81,7 @@ export function HomeClient({
 
   const needsSetup = initialData.profile.grossIncome === 0;
 
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
+  const { today } = useToday();
 
   // Savings accumulate from past completed days (after last transfer) that had real activity
   const cutoff = lastSavingsTransferDate
@@ -159,15 +159,8 @@ export function HomeClient({
         </div>
       ) : (
         <>
-          {/* Savings card — only in week view */}
-          {tab === "week" && (
-            <WeeklySurplusCard
-              surplus={accumulatedSavings}
-            />
-          )}
-
           {/* Main card */}
-          <MainCard isWeekly={tab === "week"} onRequestSos={() => setShowSos(true)} />
+          <MainCard isWeekly={tab === "week"} onRequestSos={() => setShowSos(true)} weeklySurplus={accumulatedSavings} />
 
           {/* Transactions */}
           <div className="mt-6">

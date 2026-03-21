@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useBudgetStore } from "@/stores/budget-store";
 import { getCategoryBarColor } from "@/components/home/category-bars";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
+import { useToday } from "@/lib/hooks/use-today";
 
 export interface CategoryState {
   id: string;
@@ -30,16 +31,7 @@ export function useSosComputation(isWeekly: boolean) {
   } = useBudgetStore();
 
   const budget = isWeekly ? weeklyBudget : dailyBudget;
-
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-  const weekStart = useMemo(() => {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    d.setDate(d.getDate() - diff);
-    return d.toISOString().split("T")[0];
-  }, []);
+  const { today, weekStart } = useToday();
 
   const relevantTxns = useMemo(
     () =>

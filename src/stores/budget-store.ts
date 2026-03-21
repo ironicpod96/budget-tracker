@@ -7,6 +7,7 @@ import {
   calcSavingsAmount,
   getDaysInMonth,
 } from "@/lib/calculations/budget";
+import { toLocalDateString } from "@/lib/utils";
 
 export interface Profile {
   id: string;
@@ -95,16 +96,16 @@ interface BudgetState {
 }
 
 function getToday(): string {
-  return new Date().toISOString().split("T")[0];
+  return toLocalDateString(new Date());
 }
 
 function getWeekStart(): string {
   const now = new Date();
   const day = now.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday = 0
+  const diff = day === 0 ? 6 : day - 1;
   const monday = new Date(now);
   monday.setDate(now.getDate() - diff);
-  return monday.toISOString().split("T")[0];
+  return toLocalDateString(monday);
 }
 
 function getWeekEnd(): string {
@@ -113,7 +114,7 @@ function getWeekEnd(): string {
   const daysToSunday = day === 0 ? 0 : 7 - day;
   const sunday = new Date(now);
   sunday.setDate(now.getDate() + daysToSunday);
-  return sunday.toISOString().split("T")[0];
+  return toLocalDateString(sunday);
 }
 
 export const useBudgetStore = create<BudgetState>((set, get) => ({

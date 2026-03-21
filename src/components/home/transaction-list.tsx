@@ -5,6 +5,8 @@ import { useBudgetStore, type Transaction } from "@/stores/budget-store";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
 import { FONT_STYLES } from "@/lib/constants/typography";
 import { createClient } from "@/lib/supabase/client";
+import { useToday } from "@/lib/hooks/use-today";
+import { toLocalDateString } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
 
 interface TransactionListProps {
@@ -15,15 +17,7 @@ export function TransactionList({ isWeekly }: TransactionListProps) {
   const { transactions } = useBudgetStore();
   const [activeSwipeId, setActiveSwipeId] = useState<string | null>(null);
 
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-  const weekStart = (() => {
-    const d = new Date(now);
-    const day = d.getDay();
-    const diff = day === 0 ? 6 : day - 1;
-    d.setDate(d.getDate() - diff);
-    return d.toISOString().split("T")[0];
-  })();
+  const { today, weekStart } = useToday();
 
   const filtered = transactions.filter((t) =>
     isWeekly ? t.transactionDate >= weekStart : t.transactionDate === today
@@ -49,26 +43,84 @@ export function TransactionList({ isWeekly }: TransactionListProps) {
     };
   }, []);
 
-  if (filtered.length === 0) {
+  if (!isWeekly) {
+    if (filtered.length === 0) {
+      return (
+        <div className="flex items-center justify-center rounded-lg bg-surface-card px-4 py-3 opacity-55">
+          <span className={`text-lg text-muted-foreground ${FONT_STYLES.transactionText}`}>
+            No transactions today
+          </span>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center justify-center rounded-lg bg-surface-card px-4 py-3 opacity-55">
-        <span className={`text-lg text-muted-foreground ${FONT_STYLES.transactionText}`}>
-          No transactions {isWeekly ? "this week" : "today"}
-        </span>
+      <div className="space-y-3">
+        {filtered.map((t) => (
+          <TransactionRow
+            key={t.id}
+            transaction={t}
+            open={activeSwipeId === t.id}
+            setOpenId={setActiveSwipeId}
+          />
+        ))}
       </div>
     );
   }
 
+  // Weekly: group by date, most recent first, with date captions
+  const grouped = new Map<string, typeof filtered>();
+  for (const t of filtered) {
+    const list = grouped.get(t.transactionDate) || [];
+    list.push(t);
+    grouped.set(t.transactionDate, list);
+  }
+
+  // Build list of dates from today back to weekStart (descending)
+  const dates: string[] = [];
+  const d = new Date(today + "T00:00:00");
+  const ws = new Date(weekStart + "T00:00:00");
+  while (d >= ws) {
+    dates.push(toLocalDateString(d));
+    d.setDate(d.getDate() - 1);
+  }
+
+  function formatDateCaption(dateStr: string) {
+    if (dateStr === today) return "Today";
+    const date = new Date(dateStr + "T00:00:00");
+    return date.toLocaleDateString("en-MY", { day: "numeric", month: "short" });
+  }
+
   return (
-    <div className="space-y-3">
-      {filtered.map((t) => (
-        <TransactionRow
-          key={t.id}
-          transaction={t}
-          open={activeSwipeId === t.id}
-          setOpenId={setActiveSwipeId}
-        />
-      ))}
+    <div className="space-y-4">
+      {dates.map((dateStr) => {
+        const txns = grouped.get(dateStr);
+        return (
+          <div key={dateStr}>
+            <p className={`mb-2 text-sm text-muted-foreground ${FONT_STYLES.bodyRegular}`}>
+              {formatDateCaption(dateStr)}
+            </p>
+            {txns && txns.length > 0 ? (
+              <div className="space-y-3">
+                {txns.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    open={activeSwipeId === t.id}
+                    setOpenId={setActiveSwipeId}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center rounded-lg bg-surface-card px-4 py-3 opacity-55">
+                <span className={`text-lg text-muted-foreground ${FONT_STYLES.transactionText}`}>
+                  No transactions
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
