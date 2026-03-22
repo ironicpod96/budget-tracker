@@ -102,9 +102,15 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
       d.setDate(monday.getDate() + i);
       const dateKey = toLocalDateString(d);
 
-      // Future days or days with no transactions → grey
+      // Today or future days → empty (day hasn't ended yet)
+      if (dateKey >= today) {
+        statuses.push("empty");
+        continue;
+      }
+
+      // Past days with no transactions → empty
       const dayTxns = transactions.filter((t) => t.transactionDate === dateKey);
-      if (dateKey > today || dayTxns.length === 0) {
+      if (dayTxns.length === 0) {
         statuses.push("empty");
         continue;
       }

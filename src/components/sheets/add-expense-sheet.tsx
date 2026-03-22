@@ -21,7 +21,6 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
   const [selectedEnvelope, setSelectedEnvelope] = useState<string | null>(null);
   const [amountStr, setAmountStr] = useState("0");
   const [description, setDescription] = useState("");
-  const [loading, setLoading] = useState(false);
   const { handleInput, handleDelete } = useNumpadAmount();
   const supabase = createClient();
 
@@ -34,76 +33,69 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
     setSelectedEnvelope(null);
   }
 
-  async function handleAdd() {
+  function handleAdd() {
     if (amount <= 0 || !activeEnvelope) return;
 
-    setLoading(true);
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const now = new Date();
+    const transactionDate = toLocalDateString(now);
+    const transactionTime = now.toTimeString().split(" ")[0];
+    const transactionId = crypto.randomUUID();
+
+    // Optimistic: update store + close immediately
+    addTransaction({
+      id: transactionId,
+      envelopeId: activeEnvelope.id,
+      envelopeName: activeEnvelope.name,
+      envelopeIcon: activeEnvelope.icon,
+      amount,
+      description: description || undefined,
+      transactionDate,
+      transactionTime,
+    });
+
+    // Check if any envelope is now overspent
+    const state = useBudgetStore.getState();
+    const todayTxns = state.transactions.filter(
+      (t) => t.transactionDate === transactionDate
+    );
+    const byEnv: Record<string, number> = {};
+    todayTxns.forEach((t) => {
+      byEnv[t.envelopeId] = (byEnv[t.envelopeId] || 0) + t.amount;
+    });
+    const hasOverspend = state.envelopes.some((env) => {
+      const envBudget =
+        Math.round(state.dailyBudget * (env.percentage / 100) * 100) / 100;
+      const adjusted = Math.max(
+        0,
+        Math.round(
+          (envBudget + (state.dailyAdjustments[env.id] || 0)) * 100
+        ) / 100
+      );
+      return (byEnv[env.id] || 0) > adjusted;
+    });
+    if (hasOverspend) {
+      state.setSosPending(true);
+    }
+
+    reset();
+    onClose();
+
+    // Persist to Supabase in background (fire-and-forget)
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) return;
 
-      const now = new Date();
-      const transactionDate = toLocalDateString(now);
-      const transactionTime = now.toTimeString().split(" ")[0];
-      const transactionId = crypto.randomUUID();
-
-      const { error } = await supabase
-        .from("transactions")
-        .insert({
-          id: transactionId,
-          profile_id: user.id,
-          envelope_id: activeEnvelope.id,
-          amount,
-          description: description || null,
-          transaction_date: transactionDate,
-          transaction_time: transactionTime,
-        });
-
-      if (!error) {
-        addTransaction({
-          id: transactionId,
-          envelopeId: activeEnvelope.id,
-          envelopeName: activeEnvelope.name,
-          envelopeIcon: activeEnvelope.icon,
-          amount,
-          description: description || undefined,
-          transactionDate,
-          transactionTime,
-        });
-
-        // Check if any envelope is now overspent after this transaction
-        const state = useBudgetStore.getState();
-        const todayTxns = state.transactions.filter(
-          (t) => t.transactionDate === transactionDate
-        );
-        const byEnv: Record<string, number> = {};
-        todayTxns.forEach((t) => {
-          byEnv[t.envelopeId] = (byEnv[t.envelopeId] || 0) + t.amount;
-        });
-        const hasOverspend = state.envelopes.some((env) => {
-          const envBudget =
-            Math.round(state.dailyBudget * (env.percentage / 100) * 100) / 100;
-          const adjusted = Math.max(
-            0,
-            Math.round(
-              (envBudget + (state.dailyAdjustments[env.id] || 0)) * 100
-            ) / 100
-          );
-          return (byEnv[env.id] || 0) > adjusted;
-        });
-        if (hasOverspend) {
-          state.setSosPending(true);
-        }
-
-        reset();
-        onClose();
-      }
-    } finally {
-      setLoading(false);
-    }
+      await supabase.from("transactions").insert({
+        id: transactionId,
+        profile_id: user.id,
+        envelope_id: activeEnvelope.id,
+        amount,
+        description: description || null,
+        transaction_date: transactionDate,
+        transaction_time: transactionTime,
+      });
+    })();
   }
 
   return (
@@ -156,11 +148,11 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
         {/* Submit */}
         <Button
           onClick={handleAdd}
-          disabled={amount <= 0 || loading}
+          disabled={amount <= 0}
           className="mt-4 h-12 w-full text-base font-semibold"
         >
           <Check size={18} className="mr-2" />
-          {loading ? "Adding..." : "Add Expense"}
+          Add Expense
         </Button>
       </SheetContent>
     </Sheet>
