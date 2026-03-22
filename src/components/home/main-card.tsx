@@ -63,18 +63,26 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
   const weekRangeStr = `${monday.getDate()}–${sunday.getDate()}`;
   const weekMonthStr = now.toLocaleDateString("en-MY", { month: "short" });
 
-  // Full weekly budget & remaining (Mon–Sun)
-  const fullWeeklyBudget = Math.round(dailyBudget * 7 * 100) / 100;
-  const weeklySpent = useMemo(() => {
-    const mondayStr = toLocalDateString(monday);
+  // Weekly budget: forward-looking (today → Sunday). Past days are settled.
+  const { weeklyBudgetForward, weeklySpentForward } = useMemo(() => {
     const sundayStr = toLocalDateString(sunday);
-    return transactions
-      .filter((t) => t.transactionDate >= mondayStr && t.transactionDate <= sundayStr)
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions, monday, sunday]);
-  const weeklyRemaining = Math.round((fullWeeklyBudget - weeklySpent) * 100) / 100;
-  const weeklyPct = fullWeeklyBudget > 0
-    ? Math.max(0, Math.min(1, weeklyRemaining / fullWeeklyBudget))
+    // Only count spending from today onwards
+    const forwardTxns = transactions.filter(
+      (t) => t.transactionDate >= today && t.transactionDate <= sundayStr
+    );
+    const spent = forwardTxns.reduce((sum, t) => sum + t.amount, 0);
+
+    // Days remaining in week (today → Sunday inclusive)
+    const todayDate = new Date(today + "T00:00:00");
+    const sundayDate = new Date(sundayStr + "T00:00:00");
+    const daysLeft = Math.max(1, Math.round((sundayDate.getTime() - todayDate.getTime()) / 86400000) + 1);
+    const budget = Math.round(dailyBudget * daysLeft * 100) / 100;
+
+    return { weeklyBudgetForward: budget, weeklySpentForward: spent };
+  }, [transactions, sunday, today, dailyBudget]);
+  const weeklyRemaining = Math.round((weeklyBudgetForward - weeklySpentForward) * 100) / 100;
+  const weeklyPct = weeklyBudgetForward > 0
+    ? Math.max(0, Math.min(1, weeklyRemaining / weeklyBudgetForward))
     : 1;
 
   // Weekly ring color
@@ -158,7 +166,7 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
 
       {/* Top right */}
       {isWeekly ? (
-        /* Weekly: RM + compact ring complication */
+        /* Weekly: RM + mini progress ring */
         <div className="absolute right-4 top-4 flex flex-col items-end gap-1">
           <span
             className={`text-xl ${FONT_STYLES.bodyStrong}`}
@@ -166,16 +174,24 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
           >
             {weeklyRemaining < 0 ? "-" : ""}RM{Math.abs(Math.round(weeklyRemaining))}
           </span>
-          <div
-            className="rounded-full"
-            style={{
-              width: 20,
-              height: 20,
-              borderWidth: 3,
-              borderStyle: "solid",
-              borderColor: weeklyRingColor,
-            }}
-          />
+          <svg width="20" height="20" viewBox="0 0 20 20" className="rotate-[-90deg]">
+            {/* Background track */}
+            <circle
+              cx="10" cy="10" r="7"
+              fill="none"
+              stroke="var(--muted)"
+              strokeWidth="3"
+            />
+            {/* Progress arc (remaining %) */}
+            <circle
+              cx="10" cy="10" r="7"
+              fill="none"
+              stroke={weeklyRingColor}
+              strokeWidth="3"
+              strokeDasharray={`${weeklyPct * 2 * Math.PI * 7} ${2 * Math.PI * 7}`}
+              strokeLinecap="round"
+            />
+          </svg>
         </div>
       ) : (
         <button
