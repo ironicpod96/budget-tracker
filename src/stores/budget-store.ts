@@ -88,6 +88,7 @@ interface BudgetState {
   addTransaction: (transaction: Transaction) => void;
   removeTransaction: (transactionId: string) => void;
   recalculate: () => void;
+  setDailyAdjustments: (adjustments: Record<string, number>) => void;
   setSosPending: (pending: boolean) => void;
   applyTrim: (
     donorTakes: Array<{ id: string; take: number }>,
@@ -180,6 +181,10 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
       transactions: state.transactions.filter((t) => t.id !== transactionId),
     }));
     get().recalculate();
+  },
+
+  setDailyAdjustments: (adjustments) => {
+    set({ dailyAdjustments: adjustments });
   },
 
   setSosPending: (pending) => {

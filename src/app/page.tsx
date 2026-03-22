@@ -19,6 +19,7 @@ export default async function HomePage() {
     { data: envelopes },
     { data: transactions },
     { data: weeklySavingsRow },
+    { data: adjustmentRows },
   ] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase
@@ -56,6 +57,10 @@ export default async function HomePage() {
       .order("transferred_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("envelope_adjustments")
+      .select("envelope_id, adjustment_date, amount")
+      .eq("profile_id", user.id),
   ]);
 
   if (!profile?.onboarding_complete) redirect("/onboarding/income");
@@ -110,10 +115,20 @@ export default async function HomePage() {
     })),
   };
 
+  // Build dailyAdjustments map: { [envelopeId]: amount } for today's date
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const initialAdjustments: Record<string, number> = {};
+  for (const row of adjustmentRows || []) {
+    if (row.adjustment_date === todayStr) {
+      initialAdjustments[row.envelope_id] = Number(row.amount);
+    }
+  }
+
   return (
     <HomeClient
       initialData={initialData}
       lastSavingsTransferDate={weeklySavingsRow?.transferred_at ?? null}
+      initialAdjustments={initialAdjustments}
     />
   );
 }

@@ -6,6 +6,8 @@ import { useBudgetStore } from "@/stores/budget-store";
 import { useSosComputation } from "@/lib/hooks/use-sos-computation";
 import { FONT_STYLES } from "@/lib/constants/typography";
 import { ArrowRight } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { toLocalDateString } from "@/lib/utils";
 
 interface SosSheetProps {
   open: boolean;
@@ -25,6 +27,32 @@ export function SosSheet({ open, onClose, isWeekly }: SosSheetProps) {
   function handleTrim() {
     applyTrim(donorTakes, overspentCategories);
     onClose();
+
+    // Persist adjustments to Supabase (fire-and-forget)
+    const adjustmentsAfterTrim = useBudgetStore.getState().dailyAdjustments;
+    const today = toLocalDateString(new Date());
+    const supabase = createClient();
+
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return;
+
+      const rows = Object.entries(adjustmentsAfterTrim)
+        .filter(([, amt]) => amt !== 0)
+        .map(([envelopeId, amount]) => ({
+          profile_id: user.id,
+          envelope_id: envelopeId,
+          adjustment_date: today,
+          amount,
+        }));
+
+      if (rows.length === 0) return;
+
+      await supabase
+        .from("envelope_adjustments")
+        .upsert(rows, { onConflict: "profile_id,envelope_id,adjustment_date" });
+    })();
   }
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "motion/react";
 import { ProgressRing } from "./progress-ring";
 import { CategoryBars } from "./category-bars";
 import { ExpandToggleIcon } from "@/components/shared/expand-toggle-icon";
@@ -10,6 +10,7 @@ import { useSosComputation } from "@/lib/hooks/use-sos-computation";
 import { useToday } from "@/lib/hooks/use-today";
 import { toLocalDateString } from "@/lib/utils";
 import { WeeklySurplusCard, WeeklySurplusIndicator } from "./weekly-surplus-card";
+import { WeeklySpendingChart } from "./weekly-spending-chart";
 import { FONT_STYLES } from "@/lib/constants/typography";
 
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
@@ -25,6 +26,9 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
   const [alertIndex, setAlertIndex] = useState(0);
   const [surplusCollapsed, setSurplusCollapsed] = useState(false);
   const [surplusTransferred, setSurplusTransferred] = useState(false);
+  const [weeklySlide, setWeeklySlide] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const dragX = useMotionValue(0);
   const showSurplus = isWeekly && weeklySurplus > 0 && !surplusTransferred;
   const { envelopes, dailyAdjustments, dailyBudget, transactions } = useBudgetStore();
 
@@ -124,6 +128,29 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
     return statuses;
   }, [transactions, dailyBudget, monday, today]);
 
+  // Weekly chart data: per-day spending for Mon→Sun
+  const weekChartData = useMemo(() => {
+    const names = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+    return names.map((name, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateKey = toLocalDateString(d);
+      const dayTxns = transactions.filter((t) => t.transactionDate === dateKey);
+      // Today: always show (even if 0). Past: show 0 if no txns. Future: null (line stops).
+      const isToday = dateKey === today;
+      const isFuture = dateKey > today;
+      const spent =
+        dayTxns.length > 0
+          ? dayTxns.reduce((sum, t) => sum + t.amount, 0)
+          : isToday
+            ? 0
+            : isFuture
+              ? null
+              : 0;
+      return { day: name, spent, budget: dailyBudget };
+    });
+  }, [transactions, dailyBudget, monday, today]);
+
   useEffect(() => {
     if (expanded || alertEnvelopes.length <= 1) return;
 
@@ -154,88 +181,124 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
     <motion.div
       layout={isWeekly ? false : "position"}
       transition={{ type: "spring", bounce: 0, duration: 0.35 }}
-      className="relative rounded-2xl bg-surface-card px-4 pt-6 pb-5">
-      {/* Top left: date */}
-      <div className="absolute left-4 top-4">
-        {isWeekly ? (
-          <div>
-            <p className={`text-xl ${FONT_STYLES.bodyStrong}`}>{weekRangeStr}</p>
-            <p className="text-xl text-muted-foreground">{weekMonthStr}</p>
-          </div>
-        ) : (
-          <div>
+      className={`relative rounded-2xl bg-surface-card px-4 ${isWeekly ? "pt-3 pb-3" : "pt-6 pb-5"}`}>
+      {/* Daily: absolute-positioned header */}
+      {!isWeekly && (
+        <>
+          <div className="absolute left-4 top-4">
             <p className={`text-xl ${FONT_STYLES.bodyStrong}`}>{dateStr}</p>
             <p className="text-xl text-muted-foreground">{dayStr}</p>
           </div>
-        )}
-      </div>
-
-      {/* Top right */}
-      {isWeekly ? (
-        /* Weekly: RM + mini progress ring */
-        <div className="absolute right-4 top-4 flex flex-col items-end gap-1">
-          <span
-            className={`text-xl ${FONT_STYLES.bodyStrong}`}
-            style={{ color: weeklyRingColor }}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="absolute right-3 top-3 cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={expanded ? "Collapse details" : "Expand details"}
           >
-            {weeklyRemaining < 0 ? "-" : ""}RM{Math.abs(Math.round(weeklyRemaining))}
-          </span>
-          <svg width="20" height="20" viewBox="0 0 20 20" className="rotate-[-90deg]">
-            {/* Background track */}
-            <circle
-              cx="10" cy="10" r="7"
-              fill="none"
-              stroke="var(--muted)"
-              strokeWidth="3"
-            />
-            {/* Progress arc (remaining %) */}
-            <circle
-              cx="10" cy="10" r="7"
-              fill="none"
-              stroke={weeklyRingColor}
-              strokeWidth="3"
-              strokeDasharray={`${weeklyPct * 2 * Math.PI * 7} ${2 * Math.PI * 7}`}
-              strokeLinecap="round"
-            />
-          </svg>
-        </div>
-      ) : (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="absolute right-3 top-3 cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={expanded ? "Collapse details" : "Expand details"}
-        >
-          <ExpandToggleIcon open={expanded} size={64} className="-translate-x-0.5 -translate-y-2" />
-        </button>
+            <ExpandToggleIcon open={expanded} size={64} className="-translate-x-0.5 -translate-y-2" />
+          </button>
+        </>
       )}
 
       {/* Top center: surplus indicator (collapsed state) */}
       {showSurplus && surplusCollapsed && (
-        <div className="absolute left-1/2 top-4 -translate-x-1/2">
+        <div className={isWeekly ? "mb-2 flex justify-center" : "absolute left-1/2 top-4 -translate-x-1/2"}>
           <WeeklySurplusIndicator surplus={weeklySurplus} onTap={() => setSurplusCollapsed(false)} animate={surplusCollapsed} />
         </div>
       )}
 
       {/* Center content */}
       {isWeekly ? (
-        /* Weekly: squares grid with 64px top/bottom margin */
-        <div style={{ marginTop: 64, marginBottom: 24 }}>
-          <div className="flex items-center justify-between">
-            {DAY_LABELS.map((label, i) => (
-              <div key={i} className="flex flex-col items-center gap-1.5">
-                <div
-                  className="rounded-lg"
-                  style={{
-                    width: 36,
-                    height: 36,
-                    backgroundColor: getSquareColor(weekDayStatuses[i]),
-                  }}
-                />
-                <span className="text-base font-medium text-muted-foreground">{label}</span>
+        /* Weekly: swipeable carousel */
+        <>
+          <div ref={carouselRef} className="overflow-hidden">
+            <motion.div
+              className="flex touch-pan-y gap-4"
+              drag="x"
+              dragSnapToOrigin={false}
+              dragMomentum={false}
+              dragConstraints={{
+                left: -((carouselRef.current?.offsetWidth ?? 0) + 16),
+                right: 0,
+              }}
+              dragElastic={0.2}
+              style={{ x: dragX }}
+              onDragEnd={(_, info) => {
+                const containerWidth = carouselRef.current?.offsetWidth ?? 0;
+                const swipedLeft = info.offset.x < -40 || info.velocity.x < -200;
+                const swipedRight = info.offset.x > 40 || info.velocity.x > 200;
+                let next = weeklySlide;
+                if (swipedLeft && weeklySlide === 0) next = 1;
+                else if (swipedRight && weeklySlide === 1) next = 0;
+                setWeeklySlide(next);
+                const gap = 16; // gap-4
+                animate(dragX, -next * (containerWidth + gap), { type: "spring", bounce: 0, duration: 0.35 });
+              }}
+            >
+              {/* Slide 1: weekly summary */}
+              <div className="flex min-w-full flex-col gap-4">
+                <div className="flex items-start justify-between gap-2 mt-1">
+                  <div>
+                    <p className={`text-xl ${FONT_STYLES.bodyStrong}`}>{weekRangeStr}</p>
+                    <p className="text-xl text-muted-foreground">{weekMonthStr}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span
+                      className={`text-xl ${FONT_STYLES.bodyStrong} leading-tight`}
+                      style={{ color: weeklyRingColor }}
+                    >
+                      {weeklyRemaining < 0 ? "-" : ""}RM{Math.abs(Math.round(weeklyRemaining))}
+                    </span>
+                    <svg width="18" height="18" viewBox="0 0 20 20" className="rotate-[-90deg]">
+                      <circle cx="10" cy="10" r="7" fill="none" stroke="var(--muted)" strokeWidth="3" />
+                      <circle
+                        cx="10" cy="10" r="7" fill="none"
+                        stroke={weeklyRingColor} strokeWidth="3"
+                        strokeDasharray={`${weeklyPct * 2 * Math.PI * 7} ${2 * Math.PI * 7}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  {DAY_LABELS.map((label, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1.5">
+                      <div
+                        className="rounded-lg"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          backgroundColor: getSquareColor(weekDayStatuses[i]),
+                        }}
+                      />
+                      <span className="text-base font-medium text-muted-foreground">{label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {/* Slide 2: spending chart */}
+              <div className="min-w-full">
+                <WeeklySpendingChart data={weekChartData} />
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Pagination dots */}
+          <div className="mt-3 flex justify-center gap-1.5">
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                className="rounded-full transition-colors duration-200"
+                style={{
+                  width: 6,
+                  height: 6,
+                  backgroundColor: weeklySlide === i ? "var(--foreground)" : "black",
+                }}
+              />
             ))}
           </div>
-        </div>
+        </>
       ) : (
         /* Daily: big ring */
         <div className="flex justify-center">

@@ -31,9 +31,11 @@ interface InitialData {
 export function HomeClient({
   initialData,
   lastSavingsTransferDate,
+  initialAdjustments,
 }: {
   initialData: InitialData;
   lastSavingsTransferDate: string | null;
+  initialAdjustments: Record<string, number>;
 }) {
   const [tab, setTab] = useState<"today" | "week">("today");
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -45,6 +47,7 @@ export function HomeClient({
     setSavingsTarget,
     setEnvelopes,
     setTransactions,
+    setDailyAdjustments,
     dailyBudget,
     transactions,
     sosPending,
@@ -70,13 +73,16 @@ export function HomeClient({
     }
     setEnvelopes(initialData.envelopes);
     setTransactions(initialData.transactions);
+    setDailyAdjustments(initialAdjustments);
   }, [
     initialData,
+    initialAdjustments,
     setProfile,
     setFixedExpenses,
     setSavingsTarget,
     setEnvelopes,
     setTransactions,
+    setDailyAdjustments,
   ]);
 
   const needsSetup = initialData.profile.grossIncome === 0;
@@ -106,7 +112,7 @@ export function HomeClient({
   const accumulatedSavings = Math.round(surplus * 100) / 100;
 
   return (
-    <div className="flex flex-1 flex-col px-4 pt-6 pb-24 relative">
+    <div className={`flex flex-col px-4 pt-6 pb-24 relative${needsSetup ? " flex-1" : ""}`}>
       <TopBar
         title={
           <div className="flex items-baseline gap-3">

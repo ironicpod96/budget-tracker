@@ -22,7 +22,8 @@ import {
   FIXED_EXPENSE_SUGGESTIONS,
   getSuggestedPercentages,
 } from "@/lib/constants/categories";
-import { X, RotateCcw, LogOut, Plus, Minus } from "lucide-react";
+import { X, RotateCcw, LogOut, Plus, Minus, Trash2 } from "lucide-react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 function EyeOpen({ size = 20 }: { size?: number }) {
   return (
@@ -188,6 +189,7 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
     }))
   );
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [showClearSavings, setShowClearSavings] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [resolution, setResolution] = useState<null | "put_back" | "use_savings">(
     null
@@ -619,6 +621,17 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
       },
       { onConflict: "profile_id" }
     );
+  }
+
+  async function clearSavings() {
+    if (!profileId) return;
+    await supabase
+      .from("weekly_savings")
+      .delete()
+      .eq("profile_id", profileId)
+      .eq("transferred_to_savings", true);
+    setSavingsThisWeek(0);
+    setSavingsThisMonth(0);
   }
 
   function adjustCategoriesEvenly(targetTotal: number) {
@@ -1334,26 +1347,65 @@ export function ManageOverlay({ open, onClose }: ManageOverlayProps) {
                     </span>
                   </div>
                 </div>
+
               </div>
             </>
           ) : (
-            <div className="space-y-3">
-              <button
-                onClick={handleReset}
-                className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4"
-              >
-                <RotateCcw size={18} />
-                <span className="text-base font-medium">Reset Budget Setup</span>
-              </button>
+            <>
+              <div className="space-y-3">
+                <button
+                  onClick={handleReset}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4"
+                >
+                  <RotateCcw size={18} />
+                  <span className="text-base font-medium">Reset Budget Setup</span>
+                </button>
 
-              <button
-                onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4 text-accent-red"
-              >
-                <LogOut size={18} />
-                <span className="text-base font-medium">Log Out</span>
-              </button>
-            </div>
+                <button
+                  onClick={() => setShowClearSavings(true)}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4 text-accent-red"
+                >
+                  <Trash2 size={18} />
+                  <span className="text-base font-medium">Clear Savings</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="flex w-full items-center gap-3 rounded-2xl bg-surface-card px-5 py-4 text-accent-red"
+                >
+                  <LogOut size={18} />
+                  <span className="text-base font-medium">Log Out</span>
+                </button>
+              </div>
+
+              <Sheet open={showClearSavings} onOpenChange={(v) => !v && setShowClearSavings(false)}>
+                <SheetContent side="bottom" className="rounded-t-2xl border-0 bg-surface-bg px-6 pt-6 pb-8">
+                  <h3 className={`text-2xl ${FONT_STYLES.displayValue}`}>Clear savings?</h3>
+                  <p className="mt-2 text-base text-muted-foreground">
+                    This will reset your savings back to RM 0. This cannot be undone.
+                  </p>
+                  <div className="mt-5 flex gap-3">
+                    <Button
+                      variant="outline"
+                      className="h-11 flex-1"
+                      onClick={() => setShowClearSavings(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="h-11 flex-1"
+                      onClick={() => {
+                        clearSavings();
+                        setShowClearSavings(false);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </>
           )}
         </div>
       </div>

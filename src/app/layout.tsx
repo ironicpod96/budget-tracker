@@ -31,7 +31,7 @@ export default function RootLayout({
       className={`${inter.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-medium">
-        <div className="app-shell min-h-screen flex flex-col">
+        <div className="app-shell min-h-dvh flex flex-col">
           {children}
         </div>
       </body>

@@ -112,6 +112,17 @@ create table if not exists public.weekly_savings (
   unique (profile_id, week_start)
 );
 
+-- Envelope adjustments (SOS trim persistence)
+create table if not exists public.envelope_adjustments (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid references public.profiles(id) on delete cascade,
+  envelope_id uuid references public.envelopes(id) on delete cascade,
+  adjustment_date date not null,
+  amount numeric(12,2) not null default 0,
+  created_at timestamptz default now(),
+  unique (profile_id, envelope_id, adjustment_date)
+);
+
 -- Medals / achievements
 create table if not exists public.medals (
   id uuid primary key default gen_random_uuid(),
@@ -138,6 +149,7 @@ alter table public.budget_periods enable row level security;
 alter table public.transactions enable row level security;
 alter table public.future_borrows enable row level security;
 alter table public.weekly_savings enable row level security;
+alter table public.envelope_adjustments enable row level security;
 alter table public.medals enable row level security;
 
 -- Profiles: id = auth.uid() (separate policies for insert vs read/update)
@@ -196,6 +208,11 @@ create policy "Users can CRUD own future_borrows"
 
 create policy "Users can CRUD own weekly_savings"
   on public.weekly_savings for all
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+create policy "Users can CRUD own envelope_adjustments"
+  on public.envelope_adjustments for all
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
