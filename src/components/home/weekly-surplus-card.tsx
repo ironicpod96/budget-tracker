@@ -23,16 +23,19 @@ export function WeeklySurplusCard({ surplus, onCollapse, onTransferred }: Weekly
     const now = new Date();
     const today = toLocalDateString(now);
 
-    const { error } = await supabase.from("weekly_savings").insert({
-      profile_id: profile.id,
-      week_start: today,
-      week_end: today,
-      weekly_budget: 0,
-      weekly_spent: 0,
-      remainder: surplus,
-      transferred_to_savings: true,
-      transferred_at: now.toISOString(),
-    });
+    const { error } = await supabase.from("weekly_savings").upsert(
+      {
+        profile_id: profile.id,
+        week_start: today,
+        week_end: today,
+        weekly_budget: 0,
+        weekly_spent: 0,
+        remainder: surplus,
+        transferred_to_savings: true,
+        transferred_at: now.toISOString(),
+      },
+      { onConflict: "profile_id,week_start" }
+    );
 
     if (!error) {
       onTransferred();

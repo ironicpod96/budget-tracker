@@ -49,9 +49,10 @@ export function SosSheet({ open, onClose, isWeekly }: SosSheetProps) {
 
       if (rows.length === 0) return;
 
-      await supabase
+      const { error } = await supabase
         .from("envelope_adjustments")
         .upsert(rows, { onConflict: "profile_id,envelope_id,adjustment_date" });
+      if (error) console.error("Failed to persist trim adjustments:", error.message);
     })();
   }
 
