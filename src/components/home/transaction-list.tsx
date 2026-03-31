@@ -7,7 +7,8 @@ import { FONT_STYLES } from "@/lib/constants/typography";
 import { createClient } from "@/lib/supabase/client";
 import { useToday } from "@/lib/hooks/use-today";
 import { toLocalDateString } from "@/lib/utils";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
+import { EditExpenseSheet } from "@/components/sheets/edit-expense-sheet";
 
 interface TransactionListProps {
   isWeekly: boolean;
@@ -137,13 +138,13 @@ function TransactionRow({
   const [dragOffset, setDragOffset] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const currentOffsetRef = useRef(0);
   const { removeTransaction } = useBudgetStore();
   const supabase = createClient();
 
   const time = transaction.transactionTime.slice(0, 5);
-  const ampm =
-    parseInt(time.split(":")[0]) >= 12 ? "PM" : "AM";
+  const ampm = parseInt(time.split(":")[0]) >= 12 ? "PM" : "AM";
   const hour12 = parseInt(time.split(":")[0]) % 12 || 12;
   const displayTime = `${hour12}:${time.split(":")[1]} ${ampm}`;
   const revealWidth = 96;
@@ -171,15 +172,13 @@ function TransactionRow({
   }
 
   function clampOffset(nextOffset: number) {
-    return Math.max(-revealWidth, Math.min(0, nextOffset));
+    return Math.max(-revealWidth, Math.min(revealWidth, nextOffset));
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     const startX = event.clientX;
     const startOffset = open ? -revealWidth : 0;
-    if (!open) {
-      setOpenId(null);
-    }
+    if (!open) setOpenId(null);
     setDragging(true);
     setDragOffset(startOffset);
     currentOffsetRef.current = startOffset;
@@ -194,7 +193,14 @@ function TransactionRow({
     const handleEnd = () => {
       setDragging(false);
       const currentOffset = currentOffsetRef.current;
-      setOpenId(currentOffset <= -48 ? transaction.id : null);
+      if (currentOffset <= -48) {
+        setOpenId(transaction.id);
+      } else if (currentOffset >= 48) {
+        setEditing(true);
+        setOpenId(null);
+      } else {
+        setOpenId(null);
+      }
       setDragOffset(null);
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleEnd);
@@ -207,19 +213,33 @@ function TransactionRow({
   }
 
   return (
+    <>
     <div
       data-transaction-row="true"
       className="relative overflow-hidden rounded-lg bg-surface-card"
     >
       <div className="pointer-events-none absolute inset-0 rounded-lg bg-surface-card" />
+
+      {/* Edit panel — left side (revealed by right swipe) */}
+      <div className="absolute bottom-px left-px top-px flex w-[92px] items-center justify-center rounded-l-md bg-surface-card border border-muted/20">
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => { event.stopPropagation(); setEditing(true); setOpenId(null); }}
+          className="flex h-full w-full cursor-pointer items-center justify-center text-muted-foreground outline-none focus-visible:outline-none focus-visible:ring-0"
+          style={{ WebkitTapHighlightColor: "transparent" }}
+          aria-label="Edit transaction"
+        >
+          <Pencil size={16} />
+        </button>
+      </div>
+
+      {/* Delete panel — right side (revealed by left swipe) */}
       <div className="absolute bottom-px right-px top-px flex w-[92px] items-center justify-center rounded-r-md bg-accent-red">
         <button
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleDelete();
-          }}
+          onClick={(event) => { event.stopPropagation(); void handleDelete(); }}
           disabled={deleting}
           className="flex h-full w-full cursor-pointer items-center justify-center text-white outline-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-60"
           style={{ WebkitTapHighlightColor: "transparent" }}
@@ -242,16 +262,23 @@ function TransactionRow({
         }}
       >
         <div className="flex items-center gap-3">
-          <span className="w-20 text-base text-muted-foreground">{displayTime}</span>
-          <span className={`text-lg ${FONT_STYLES.transactionText}`}>
-            {CATEGORY_ICONS[transaction.envelopeIcon] || ""}{" "}
-            {transaction.envelopeName}
-          </span>
+          <span className="w-20 shrink-0 text-base text-muted-foreground">{displayTime}</span>
+          <div className="flex flex-col">
+            <span className={`text-lg ${FONT_STYLES.transactionText}`}>
+              {CATEGORY_ICONS[transaction.envelopeIcon] || ""}{" "}
+              {transaction.envelopeName}
+            </span>
+            {transaction.description && (
+              <span className="text-sm text-muted-foreground">{transaction.description}</span>
+            )}
+          </div>
         </div>
         <span className={`text-lg ${FONT_STYLES.transactionText}`}>
-          RM {transaction.amount}
+          RM {Number(transaction.amount).toFixed(2)}
         </span>
       </div>
     </div>
+    <EditExpenseSheet transaction={editing ? transaction : null} onClose={() => setEditing(false)} />
+    </>
   );
 }

@@ -1,21 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { useHorizontalScroll } from "@/lib/hooks/use-horizontal-scroll";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Numpad, useNumpadAmount } from "@/components/shared/numpad";
 import { DescriptionPicker } from "@/components/shared/description-picker";
-import { useBudgetStore } from "@/stores/budget-store";
+import { useBudgetStore, type Transaction } from "@/stores/budget-store";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
 import { toLocalDateString } from "@/lib/utils";
+import { useHorizontalScroll } from "@/lib/hooks/use-horizontal-scroll";
 import { Check } from "lucide-react";
 
-interface AddPastExpenseSheetProps {
-  open: boolean;
+interface EditExpenseSheetProps {
+  transaction: Transaction | null;
   onClose: () => void;
 }
 
@@ -26,79 +26,74 @@ function formatDisplayDate(d: Date) {
   return d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function AddPastExpenseSheet({ open, onClose }: AddPastExpenseSheetProps) {
-  const { envelopes, addTransaction } = useBudgetStore();
+export function EditExpenseSheet({ transaction, onClose }: EditExpenseSheetProps) {
+  const { envelopes, updateTransaction } = useBudgetStore();
   const [selectedEnvelope, setSelectedEnvelope] = useState<string | null>(null);
   const [amountStr, setAmountStr] = useState("0");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(new Date());
-  const [hour, setHour] = useState(() => String(new Date().getHours()).padStart(2, "0"));
-  const [minute, setMinute] = useState(() => String(new Date().getMinutes()).padStart(2, "0"));
+  const [hour, setHour] = useState("00");
+  const [minute, setMinute] = useState("00");
   const [showCal, setShowCal] = useState(false);
   const [showTime, setShowTime] = useState(false);
   const { handleInput, handleDelete } = useNumpadAmount();
   const { ref: categoryRef, onWheel: categoryWheel } = useHorizontalScroll();
   const supabase = createClient();
 
-  const activeEnvelope = envelopes.find((e) => e.id === selectedEnvelope) || envelopes[0];
-  const amount = parseFloat(amountStr) || 0;
   const today = new Date();
   today.setHours(23, 59, 59, 999);
 
-  function reset() {
-    const now = new Date();
-    setAmountStr("0");
-    setDescription("");
-    setSelectedEnvelope(null);
-    setDate(now);
-    setHour(String(now.getHours()).padStart(2, "0"));
-    setMinute(String(now.getMinutes()).padStart(2, "0"));
+  // Populate from transaction whenever it changes
+  useEffect(() => {
+    if (!transaction) return;
+    setSelectedEnvelope(transaction.envelopeId);
+    setAmountStr(String(transaction.amount));
+    setDescription(transaction.description ?? "");
+    const [y, m, d] = transaction.transactionDate.split("-").map(Number);
+    setDate(new Date(y, m - 1, d));
+    setHour(transaction.transactionTime.slice(0, 2));
+    setMinute(transaction.transactionTime.slice(3, 5));
     setShowCal(false);
     setShowTime(false);
-  }
+  }, [transaction]);
 
-  function handleAdd() {
-    if (amount <= 0 || !activeEnvelope) return;
+  const activeEnvelope =
+    envelopes.find((e) => e.id === selectedEnvelope) ||
+    envelopes.find((e) => e.id === transaction?.envelopeId) ||
+    envelopes[0];
+  const amount = parseFloat(amountStr) || 0;
 
-    const transactionDate = toLocalDateString(date);
-    const transactionTime = `${hour}:${minute}:00`;
-    const transactionId = crypto.randomUUID();
+  function handleSave() {
+    if (!transaction || amount <= 0 || !activeEnvelope) return;
 
-    addTransaction({
-      id: transactionId,
+    const updated: Transaction = {
+      ...transaction,
       envelopeId: activeEnvelope.id,
       envelopeName: activeEnvelope.name,
       envelopeIcon: activeEnvelope.icon,
       amount,
       description: description || undefined,
-      transactionDate,
-      transactionTime,
-    });
+      transactionDate: toLocalDateString(date),
+      transactionTime: `${hour}:${minute}:00`,
+    };
 
-    reset();
+    updateTransaction(updated);
     onClose();
 
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return;
-
-      await supabase.from("transactions").insert({
-        id: transactionId,
-        profile_id: user.id,
+      await supabase.from("transactions").update({
         envelope_id: activeEnvelope.id,
         amount,
         description: description || null,
-        transaction_date: transactionDate,
-        transaction_time: transactionTime,
-      });
+        transaction_date: toLocalDateString(date),
+        transaction_time: `${hour}:${minute}:00`,
+      }).eq("id", transaction.id);
     })();
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-2xl bg-surface-bg border-0 px-6 pt-6 pb-8 overflow-y-auto">
-        {/* Amount display */}
+    <Sheet open={!!transaction} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="bottom" className="h-[92vh] rounded-t-2xl bg-surface-bg border-0 px-6 pt-6 pb-8 overflow-y-auto">
         <div className="mt-4 mb-1">
           <div className="flex items-baseline gap-2">
             <span className="text-4xl text-muted-foreground font-normal">RM</span>
@@ -116,7 +111,7 @@ export function AddPastExpenseSheet({ open, onClose }: AddPastExpenseSheetProps)
                 key={env.id}
                 onClick={() => setSelectedEnvelope(env.id)}
                 className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
-                  (selectedEnvelope || envelopes[0]?.id) === env.id
+                  activeEnvelope?.id === env.id
                     ? "bg-foreground text-background"
                     : "bg-surface-card"
                 }`}
@@ -153,7 +148,6 @@ export function AddPastExpenseSheet({ open, onClose }: AddPastExpenseSheetProps)
           </button>
         </div>
 
-        {/* Expandable calendar */}
         <AnimatePresence initial={false}>
           {showCal && (
             <motion.div
@@ -177,7 +171,6 @@ export function AddPastExpenseSheet({ open, onClose }: AddPastExpenseSheetProps)
           )}
         </AnimatePresence>
 
-        {/* Expandable time picker */}
         <AnimatePresence initial={false}>
           {showTime && (
             <motion.div
@@ -209,20 +202,18 @@ export function AddPastExpenseSheet({ open, onClose }: AddPastExpenseSheetProps)
           )}
         </AnimatePresence>
 
-        {/* Numpad */}
         <Numpad
           onInput={(key) => setAmountStr((prev) => handleInput(prev, key))}
           onDelete={() => setAmountStr((prev) => handleDelete(prev))}
         />
 
-        {/* Submit */}
         <Button
-          onClick={handleAdd}
+          onClick={handleSave}
           disabled={amount <= 0}
           className="mt-4 h-12 w-full text-base font-semibold"
         >
           <Check size={18} className="mr-2" />
-          Add Expense
+          Save Changes
         </Button>
       </SheetContent>
     </Sheet>

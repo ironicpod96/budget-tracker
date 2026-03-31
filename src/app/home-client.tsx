@@ -172,17 +172,7 @@ export function HomeClient({
 
           {/* Transactions */}
           <div className="mt-6">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className={`text-lg ${FONT_STYLES.bodyStrong}`}>Transactions</h2>
-              {tab === "week" && (
-                <button
-                  onClick={() => setShowAddPastExpense(true)}
-                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-surface-card text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <Plus size={16} strokeWidth={2.5} />
-                </button>
-              )}
-            </div>
+            <h2 className={`mb-3 text-lg ${FONT_STYLES.bodyStrong}`}>Transactions</h2>
             <TransactionList isWeekly={tab === "week"} />
           </div>
         </>
@@ -191,7 +181,7 @@ export function HomeClient({
       {/* FAB — only show when budget is set up */}
       {!needsSetup && (
         <button
-          onClick={() => setShowAddExpense(true)}
+          onClick={() => tab === "week" ? setShowAddPastExpense(true) : setShowAddExpense(true)}
           className="fixed bottom-8 left-1/2 -translate-x-1/2 flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-lg"
         >
           <Plus size={34} strokeWidth={3} />

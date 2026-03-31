@@ -34,7 +34,7 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
   const [weeklySlide, setWeeklySlide] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
-  const showSurplus = isWeekly && weeklySurplus > 0 && !surplusTransferred;
+  const showSurplus = false; // temporarily disabled
   const { envelopes, dailyAdjustments, dailyBudget, transactions } = useBudgetStore();
 
   const {
@@ -69,8 +69,12 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
     s.setDate(monday.getDate() + 6);
     return s;
   }, [monday]);
-  const weekRangeStr = `${monday.getDate()}–${sunday.getDate()}`;
-  const weekMonthStr = now.toLocaleDateString("en-MY", { month: "short" });
+  const monMonth = monday.toLocaleDateString("en-MY", { month: "short" });
+  const sunMonth = sunday.toLocaleDateString("en-MY", { month: "short" });
+  const weekRangeStr = monMonth === sunMonth
+    ? `${monday.getDate()}–${sunday.getDate()}`
+    : `${monday.getDate()} ${monMonth} – ${sunday.getDate()} ${sunMonth}`;
+  const weekMonthStr = monMonth === sunMonth ? monMonth : "";
 
   // Weekly budget: forward-looking (today → Sunday). Past days are settled.
   const { weeklyBudgetForward, weeklySpentForward } = useMemo(() => {
@@ -106,27 +110,14 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
   const weekDayStatuses = useMemo(() => {
     const statuses: Array<"green" | "orange" | "red" | "empty"> = [];
 
-    // Compute cumulative deficit from past completed days
-    let cumulativeDeficit = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
-      const dateKey = toLocalDateString(d);
-      if (dateKey >= today) break;
-      const dayTxns = transactions.filter((t) => t.transactionDate === dateKey);
-      if (dayTxns.length === 0) continue;
-      const spent = dayTxns.reduce((sum, t) => sum + t.amount, 0);
-      cumulativeDeficit += spent - dailyBudget;
-    }
-
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateKey = toLocalDateString(d);
 
-      // Today or future days
+      // Today or future → empty
       if (dateKey >= today) {
-        statuses.push(cumulativeDeficit > 0 ? "red" : "empty");
+        statuses.push("empty");
         continue;
       }
 
@@ -324,7 +315,7 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
         </div>
       )}
 
-      {!isWeekly && (
+      {!isWeekly && !showSosButton && (
         <motion.div
           className="absolute bottom-5 left-4"
           animate={{ opacity: expanded ? 0 : 1 }}

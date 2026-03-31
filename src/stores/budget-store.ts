@@ -87,6 +87,7 @@ interface BudgetState {
   setTransactions: (transactions: Transaction[]) => void;
   addTransaction: (transaction: Transaction) => void;
   removeTransaction: (transactionId: string) => void;
+  updateTransaction: (transaction: Transaction) => void;
   recalculate: () => void;
   setDailyAdjustments: (adjustments: Record<string, number>) => void;
   setSosPending: (pending: boolean) => void;
@@ -179,6 +180,15 @@ export const useBudgetStore = create<BudgetState>((set, get) => ({
   removeTransaction: (transactionId) => {
     set((state) => ({
       transactions: state.transactions.filter((t) => t.id !== transactionId),
+    }));
+    get().recalculate();
+  },
+
+  updateTransaction: (transaction) => {
+    set((state) => ({
+      transactions: state.transactions.map((t) =>
+        t.id === transaction.id ? transaction : t
+      ),
     }));
     get().recalculate();
   },

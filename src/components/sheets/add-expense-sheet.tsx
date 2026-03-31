@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useHorizontalScroll } from "@/lib/hooks/use-horizontal-scroll";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Numpad, useNumpadAmount } from "@/components/shared/numpad";
+import { DescriptionPicker } from "@/components/shared/description-picker";
 import { useBudgetStore } from "@/stores/budget-store";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
@@ -22,6 +23,7 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
   const [amountStr, setAmountStr] = useState("0");
   const [description, setDescription] = useState("");
   const { handleInput, handleDelete } = useNumpadAmount();
+  const { ref: categoryRef, onWheel: categoryWheel } = useHorizontalScroll();
   const supabase = createClient();
 
   const activeEnvelope = envelopes.find((e) => e.id === selectedEnvelope) || envelopes[0];
@@ -113,7 +115,7 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
         <div className="relative mb-2 mt-3 -mx-6">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-surface-bg to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-surface-bg to-transparent" />
-          <div className="no-scrollbar flex gap-2 overflow-x-auto px-6">
+          <div ref={categoryRef} onWheel={categoryWheel} className="no-scrollbar flex gap-2 overflow-x-auto px-6">
             {envelopes.map((env) => (
               <button
                 key={env.id}
@@ -132,12 +134,13 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
         </div>
 
         {/* Description */}
-        <Input
-          placeholder="Add description (optional)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="mb-4 bg-surface-card border-0 h-10"
-        />
+        <div className="mb-4">
+          <DescriptionPicker
+            envelopeId={activeEnvelope?.id}
+            value={description}
+            onChange={setDescription}
+          />
+        </div>
 
         {/* Numpad */}
         <Numpad
