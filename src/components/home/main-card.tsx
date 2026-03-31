@@ -23,6 +23,11 @@ interface MainCardProps {
 
 export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const spentShouldAnimate = useRef(false);
+  useEffect(() => {
+    spentShouldAnimate.current = false;
+    setExpanded(false);
+  }, [isWeekly]);
   const [alertIndex, setAlertIndex] = useState(0);
   const [surplusCollapsed, setSurplusCollapsed] = useState(false);
   const [surplusTransferred, setSurplusTransferred] = useState(false);
@@ -101,14 +106,27 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
   const weekDayStatuses = useMemo(() => {
     const statuses: Array<"green" | "orange" | "red" | "empty"> = [];
 
+    // Compute cumulative deficit from past completed days
+    let cumulativeDeficit = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const dateKey = toLocalDateString(d);
+      if (dateKey >= today) break;
+      const dayTxns = transactions.filter((t) => t.transactionDate === dateKey);
+      if (dayTxns.length === 0) continue;
+      const spent = dayTxns.reduce((sum, t) => sum + t.amount, 0);
+      cumulativeDeficit += spent - dailyBudget;
+    }
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dateKey = toLocalDateString(d);
 
-      // Today or future days → empty (day hasn't ended yet)
+      // Today or future days
       if (dateKey >= today) {
-        statuses.push("empty");
+        statuses.push(cumulativeDeficit > 0 ? "red" : "empty");
         continue;
       }
 
@@ -121,9 +139,9 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
 
       const spent = dayTxns.reduce((sum, t) => sum + t.amount, 0);
       const dayRemaining = Math.round((dailyBudget - spent) * 100) / 100;
-      if (dayRemaining < 0) statuses.push("red");       // borrowed from tomorrow
-      else if (dayRemaining === 0) statuses.push("orange"); // used up exactly
-      else statuses.push("green");                        // saved money
+      if (dayRemaining < 0) statuses.push("red");
+      else if (dayRemaining === 0) statuses.push("orange");
+      else statuses.push("green");
     }
     return statuses;
   }, [transactions, dailyBudget, monday, today]);
@@ -190,7 +208,7 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
             <p className="text-xl text-muted-foreground">{dayStr}</p>
           </div>
           <button
-            onClick={() => setExpanded(!expanded)}
+            onClick={() => { spentShouldAnimate.current = true; setExpanded(!expanded); }}
             className="absolute right-3 top-3 cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
             aria-label={expanded ? "Collapse details" : "Expand details"}
           >
@@ -199,9 +217,9 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
         </>
       )}
 
-      {/* Top center: surplus indicator (collapsed state) */}
-      {showSurplus && surplusCollapsed && (
-        <div className={isWeekly ? "mb-2 flex justify-center" : "absolute left-1/2 top-4 -translate-x-1/2"}>
+      {/* Daily: surplus indicator (collapsed state) */}
+      {!isWeekly && showSurplus && surplusCollapsed && (
+        <div className="absolute left-1/2 top-4 -translate-x-1/2">
           <WeeklySurplusIndicator surplus={weeklySurplus} onTap={() => setSurplusCollapsed(false)} animate={surplusCollapsed} />
         </div>
       )}
@@ -304,6 +322,20 @@ export function MainCard({ isWeekly, onRequestSos, weeklySurplus = 0 }: MainCard
         <div className="flex justify-center">
           <ProgressRing percentage={pct} remaining={remaining} />
         </div>
+      )}
+
+      {!isWeekly && (
+        <motion.div
+          className="absolute bottom-5 left-4"
+          animate={{ opacity: expanded ? 0 : 1 }}
+          transition={spentShouldAnimate.current ? { duration: 0.2 } : { duration: 0 }}
+          style={{ pointerEvents: expanded ? "none" : "auto" }}
+        >
+          <p className="text-xl text-muted-foreground">Spent</p>
+          <p className={`text-xl ${FONT_STYLES.bodyStrong}`}>
+            RM {Math.max(0, budget - remaining).toFixed(0)}
+          </p>
+        </motion.div>
       )}
 
       {/* Weekly surplus card (expanded state) */}

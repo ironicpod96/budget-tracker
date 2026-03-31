@@ -5,6 +5,7 @@ import { useBudgetStore } from "@/stores/budget-store";
 import { MainCard } from "@/components/home/main-card";
 import { TransactionList } from "@/components/home/transaction-list";
 import { AddExpenseSheet } from "@/components/sheets/add-expense-sheet";
+import { AddPastExpenseSheet } from "@/components/sheets/add-past-expense-sheet";
 import { ManageOverlay } from "@/components/manage/manage-overlay";
 import { TopBar } from "@/components/shared/top-bar";
 import { useToday } from "@/lib/hooks/use-today";
@@ -39,6 +40,7 @@ export function HomeClient({
 }) {
   const [tab, setTab] = useState<"today" | "week">("today");
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showAddPastExpense, setShowAddPastExpense] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showSos, setShowSos] = useState(false);
   const {
@@ -170,7 +172,17 @@ export function HomeClient({
 
           {/* Transactions */}
           <div className="mt-6">
-            <h2 className={`mb-3 text-lg ${FONT_STYLES.bodyStrong}`}>Transactions</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className={`text-lg ${FONT_STYLES.bodyStrong}`}>Transactions</h2>
+              {tab === "week" && (
+                <button
+                  onClick={() => setShowAddPastExpense(true)}
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-surface-card text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <Plus size={16} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
             <TransactionList isWeekly={tab === "week"} />
           </div>
         </>
@@ -190,6 +202,10 @@ export function HomeClient({
       <AddExpenseSheet
         open={showAddExpense}
         onClose={() => setShowAddExpense(false)}
+      />
+      <AddPastExpenseSheet
+        open={showAddPastExpense}
+        onClose={() => setShowAddPastExpense(false)}
       />
       {showManage && (
         <ManageOverlay

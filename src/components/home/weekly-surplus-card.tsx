@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { useBudgetStore } from "@/stores/budget-store";
@@ -38,6 +39,9 @@ export function WeeklySurplusCard({ surplus, onCollapse, onTransferred }: Weekly
     );
 
     if (!error) {
+      toast.success(`RM ${Math.round(surplus)} saved to Tabung!`, {
+        description: "Great job staying on budget this week.",
+      });
       onTransferred();
     }
   }
@@ -88,7 +92,7 @@ export function WeeklySurplusIndicator({ surplus, onTap, animate: shouldAnimate 
       transition={shouldAnimate ? { type: "spring", bounce: 0, duration: 0.4 } : undefined}
     >
       <span
-        className={`text-xl ${FONT_STYLES.bodyStrong} animate-pulse`}
+        className={`text-xl ${FONT_STYLES.bodyStrong}`}
         style={{ color: "var(--accent-green)" }}
       >
         RM{Math.round(surplus)}
