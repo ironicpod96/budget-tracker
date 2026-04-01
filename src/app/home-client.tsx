@@ -182,7 +182,7 @@ export function HomeClient({
       {!needsSetup && (
         <button
           onClick={() => tab === "week" ? setShowAddPastExpense(true) : setShowAddExpense(true)}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-lg"
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 flex h-[72px] w-[72px] cursor-pointer items-center justify-center rounded-full bg-white text-black shadow-lg outline outline-[6px] outline-black"
         >
           <Plus size={34} strokeWidth={3} />
         </button>

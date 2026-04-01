@@ -10,7 +10,6 @@ import { useBudgetStore } from "@/stores/budget-store";
 import { createClient } from "@/lib/supabase/client";
 import { CATEGORY_ICONS } from "@/lib/constants/categories";
 import { toLocalDateString } from "@/lib/utils";
-import { Check } from "lucide-react";
 
 interface AddExpenseSheetProps {
   open: boolean;
@@ -154,7 +153,6 @@ export function AddExpenseSheet({ open, onClose }: AddExpenseSheetProps) {
           disabled={amount <= 0}
           className="mt-4 h-12 w-full text-base font-semibold"
         >
-          <Check size={18} className="mr-2" />
           Add Expense
         </Button>
       </SheetContent>

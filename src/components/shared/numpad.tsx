@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 interface NumpadProps {
   onInput: (key: string) => void;
   onDelete: () => void;
@@ -20,6 +22,16 @@ export function Numpad({ onInput, onDelete }: NumpadProps) {
       onInput(key);
     }
   }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key >= "0" && e.key <= "9") onInput(e.key);
+      else if (e.key === ".") onInput(".");
+      else if (e.key === "Backspace") onDelete();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onInput, onDelete]);
 
   return (
     <div className="grid grid-cols-3 gap-2">
